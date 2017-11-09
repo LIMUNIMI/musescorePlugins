@@ -4,7 +4,9 @@ Repository for MuseScore 2.0 plugins developed at the Laboratorio di Informatica
 ## Requirements
 
 The plugins available on this page have been developed for MuseScore version 2.0.1 or higher.
+
 MuseScore is a free scorewriter for Windows, macOS, and Linux, supporting a wide variety of file formats and input methods. It is released as free and open-source software under the GNU General Public License.
+
 MuseScore can be downloaded from <https://musescore.org>
 
 ## Repo content
