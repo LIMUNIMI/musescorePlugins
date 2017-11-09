@@ -15,16 +15,21 @@ MuseScore can be downloaded from <https://musescore.org>
 
 `README.md` is this file.
 
-## How to install plugins
+## How to use plugins
 
 After installing MuseScore 2.0.1 or higher, plugins must be placed under `plugins` subdiectory, and enabled through the Plugin Manager, as explained in <https://musescore.org/en/handbook-advanced-topics/plugins>.
 
 ## License
 
 ### Export to IEEE 1599 plugin
+
 Luca A. Ludovico
+
 luca.ludovico@unimi.it
+
 Copyright (C) 2017 - Laboratorio di Informatica Musicale
+
+
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
