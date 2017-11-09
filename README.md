@@ -1,5 +1,5 @@
 # musescorePlugins
-Repository for MuseScore 2.0 plugins
+Repository for MuseScore 2.0 plugins developed at the Laboratorio di Informatica Musicale (LIM).
 
 ## Requirements
 
