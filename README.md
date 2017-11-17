@@ -21,9 +21,11 @@ After installing MuseScore 2.0.1 or higher, plugins must be placed under `plugin
 
 ## License
 
-### Export to IEEE 1599 plugin
+EXPORT TO IEEE 1599 PLUGIN
+Luca A. Ludovico - luca.ludovico@unimi.it
 
-by Luca A. Ludovico - luca.ludovico@unimi.it - Copyright (C) 2017, Laboratorio di Informatica Musicale
+This program lets the user export IEEE 1599 files from MuseScore
+Copyright (C) 2017, Laboratorio di Informatica Musicale
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
