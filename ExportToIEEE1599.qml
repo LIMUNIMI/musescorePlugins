@@ -11,7 +11,7 @@ import FileIO 1.0
 
 MuseScore {
       menuPath: "Plugins." + "Export to IEEE 1599"
-      version: "1.0.1"
+      version: "1.1"
       description: "Export to IEEE 1599 format..."
       pluginType: "dialog"
 
@@ -277,6 +277,7 @@ MuseScore {
             var keySignatures = keySignatures.split(";;")
             var timeSignatures = timeSignatures.split(";;")
             var result = indent(2)+ "<los>" + crlf
+            var lyrics = ""
             
             // Staff list
             result += indent(3)+ "<staff_list>" + crlf
@@ -297,7 +298,9 @@ MuseScore {
                         result += "5"
 
                   result += "'>" + crlf
-                  result += indent(5)+ "<clef event_ref='" + staffName + "_clef' shape='G' staff_step='2' />" + crlf
+                  var aggregatedClef = getClef(staffIndex)
+                  var disaggregatedClef = aggregatedClef.split("_")
+                  result += indent(5)+ "<clef event_ref='" + staffName + "_clef' shape='" + disaggregatedClef[0] + "' staff_step='" + disaggregatedClef[1] + "' />" + crlf
                         
                   // Key signatures
                         for (var ks = 0; ks < keySignatures.length; ks++) {
@@ -350,6 +353,8 @@ MuseScore {
                   var cursor = curScore.newCursor()
                   var stopWhile = false
                   // Cycling on measures...
+                  var oldPartForLyrics = ""
+                  var oldVoiceForLyrics = ""
                   while (true) {
                         measureToParse++
                         cursor.rewind(0)
@@ -366,10 +371,12 @@ MuseScore {
                               break
                         }
                         result += indent(4)+ "<measure number='" + measureToParse + "'>" + crlf
+                        
                         // Voicing per measure
                         for (var v = 0; v < trackIdxsToParse.length; v++) {
                               var innerCursor = curScore.newCursor()
                               var atLeastOneEvent = false
+                              var currentLyrics = ""
                               innerCursor.track = trackIdxsToParse[v]
                               innerCursor.rewind(0)
                               // move cursor to current measure
@@ -380,7 +387,8 @@ MuseScore {
                               }
                               while (innerCursor.nextMeasure())
                               var eventNum = 0
-                              // Chords and rests
+                         
+                              // Chords and rests (and lyrics)
                               var currentMeasure = innerCursor.measure
                               do
                                     if (innerCursor.element != null) {
@@ -390,14 +398,29 @@ MuseScore {
                                           atLeastOneEvent = true
                                           var eventId = getEventId(currentPartName, measureToParse, (v + 1), eventNum)
                                           // console.log (eventId)
-                                          if (innerCursor.element.type == Element.CHORD)
+                                          if (innerCursor.element.type == Element.CHORD) {
                                                 result += parseChord(innerCursor.element, eventId, curScore.parts[partIdx].hasPitchedStaff)
+                                                // Lyrics
+                                                currentLyrics += parseLyrics(innerCursor.element, eventId)
+                                          }
                                           else if (innerCursor.element.type == Element.REST)
                                                 result += parseRest(innerCursor.element, eventId)
                                     }
                               while (innerCursor.next() && innerCursor.measure == currentMeasure)
                               if (atLeastOneEvent)
                                     result += indent(5)+ "</voice>" + crlf
+                              
+                              // Lyrics 
+                              if (currentLyrics != "") {
+                              	if (currentPartName != oldPartForLyrics || voiceNamesToParse[v] != oldVoiceForLyrics) {
+                              		if (oldPartForLyrics != "")
+                              			lyrics += indent(3) + "</lyrics>"
+                              		lyrics += indent(3) + "<lyrics part_ref='" + currentPartName + "' voice_ref='" + voiceNamesToParse[v] + "'>" + crlf
+                              	}
+                              	lyrics += currentLyrics
+                              	oldPartForLyrics = currentPartName
+                        	oldVoiceForLyrics = voiceNamesToParse[v]
+                              }
                         }
                         result += indent(4)+ "</measure>" + crlf
                   }
@@ -405,6 +428,8 @@ MuseScore {
                   result += indent(3)+ "</part>" + crlf
             }
 
+	    if (lyrics != "")
+	    	result += lyrics + indent(3) + "</lyrics>" + crlf
             result += indent(2)+ "</los>" + crlf
             return result
       }
@@ -699,7 +724,7 @@ MuseScore {
       }
 
       function getOctave(note) {
-            var octave = note.pitch / 12
+            var octave = note.ppitch / 12
             if (note.tpc == 0 || note.tpc == 7)
                   octave++
             if (note.tpc == 26 || note.tpc == 33)
@@ -749,6 +774,53 @@ MuseScore {
             }
             accidental += indent(8) + "</printed_accidentals>" + crlf
             return accidental
+      }
+      
+      function parseLyrics(chord, eventId) {
+      	    var result = ""
+     	    for (var i = 0; i < chord.lyrics.length; i++) {
+     		  result += indent(4) + "<syllable start_event_ref='" + eventId + "'"
+     		  
+		  if (chord.lyrics[i].syllabic === Lyrics.SINGLE || chord.lyrics[i].syllabic === Lyrics.END) {
+			result += " hyphen='no'"
+		  } 
+		  else {
+			result += " hyphen='yes'"
+		  }  
+		  result += ">"
+		  result += unescape(encodeURIComponent(chord.lyrics[i].text))
+     		  result += "</syllable>" + crlf
+     	    }
+            return result
+      }
+
+      function getClef(staffIdx) {
+            var tempCursor = curScore.newCursor()
+            tempCursor.staffIdx = staffIdx
+            tempCursor.rewind(0)
+            if (tempCursor.element == null)
+                  return "G_2"
+            do {
+                  if (tempCursor.element.type == Element.CHORD) {
+                  	// use a single note comparing its tonal pitch class and the line/space where it is written in order to infer the clef
+                        var note = tempCursor.element.notes[0]
+                        var tonalPitchClass = ((note.tpc2 % 7) + ((note.tpc2 % 7) % 2) * 7) / 2
+                        var position = (note.pos * 2) % 7
+                        
+                        switch (tonalPitchClass + position) {
+                        	case 0: return "F_4"
+                        	case 2: return "C_6"
+                        	case 4: return "C_4"
+                        	case 5: return "F_6"
+                        	case 6: return "C_2"
+                        	case 8: return "C_0"
+                        	case 10:                       	
+                        	default: return "G_2"
+                        }
+                  }
+            }
+            while (tempCursor.next())
+            return "G_2"
       }
 
       function getEventId(partName, measNum, voiceNum, eventNum) {
