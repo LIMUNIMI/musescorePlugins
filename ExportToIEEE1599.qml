@@ -596,11 +596,11 @@ MuseScore {
                               break
                         }
                   while (tempCursor.next())
-                  if (counter == voiceIdx) {
+					if (counter == voiceIdx) {
                         var result = Math.floor((j - startTrack) / 4) + 1
                         // console.log ("Voice " + voiceIdx + " >>> Staff " + result)
                         return result
-                  }
+					}
             }
             return 0
       }
@@ -779,17 +779,17 @@ MuseScore {
       function parseLyrics(chord, eventId) {
       	    var result = ""
      	    for (var i = 0; i < chord.lyrics.length; i++) {
-     		  result += indent(4) + "<syllable start_event_ref='" + eventId + "'"
+				result += indent(4) + "<syllable start_event_ref='" + eventId + "'"
      		  
-		  if (chord.lyrics[i].syllabic === Lyrics.SINGLE || chord.lyrics[i].syllabic === Lyrics.END) {
-			result += " hyphen='no'"
-		  } 
-		  else {
-			result += " hyphen='yes'"
-		  }  
-		  result += ">"
-		  result += unescape(encodeURIComponent(chord.lyrics[i].text))
-     		  result += "</syllable>" + crlf
+				if (chord.lyrics[i].syllabic === Lyrics.SINGLE || chord.lyrics[i].syllabic === Lyrics.END) {
+					result += " hyphen='no'"
+				}	 
+				else {
+					result += " hyphen='yes'"
+				}  
+				result += ">"
+				result += unescape(encodeURIComponent(chord.lyrics[i].text))
+				result += "</syllable>" + crlf
      	    }
             return result
       }
