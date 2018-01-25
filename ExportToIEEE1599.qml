@@ -30,6 +30,8 @@ MuseScore {
       property var dictSpine : []
       property var dictParts : []
       property var dictStaves : []
+      property var dictLyrics : []
+      property var dictBBoxes : []
       
       onRun: {    
             calculateMeasures()
@@ -106,18 +108,18 @@ MuseScore {
             Component.onCompleted: visible = false
       }
 
-    // Step 2: create XML
+      // Step 2: create XML
       function createXML(filename) {
-            var crlf = "\r\n"
             var xml = "<?xml version='1.0' encoding='UTF-8'?>" + crlf
             xml += createDocType()
             xml += "<ieee1599 version='1.0' creator='MuseScore Export Plugin " + version + "'>" + crlf
             xml += createGeneral()
             xml += createLogic()
+            xml += createNotational()
             xml += "</ieee1599>"
             // console.log("Resulting XML:" + crlf + xml)
             xmlWriter.source = filename
-          console.log ("Writing XML...")
+            console.log ("Writing XML...")
             xmlWriter.write(xml)
             console.log ("Conversion performed")
             endDialog.open()
@@ -139,12 +141,12 @@ MuseScore {
             result += unescape(encodeURIComponent(curScore.title))
             console.log("General > title: " + unescape(encodeURIComponent(curScore.title)))
             result += "</main_title>" + crlf
-            result += indent(3)+ "<author type='composer'>"
+            result += indent(3)+ "<author type=\"composer\">"
             result += unescape(encodeURIComponent(curScore.composer))
             console.log("General > author[composer]: " + unescape(encodeURIComponent(curScore.composer)))
             result += "</author>" + crlf
             if (curScore.poet) {
-                  result += indent(3)+ "<author type='poet'>"
+                  result += indent(3)+ "<author type=\"poet\">"
                   result += unescape(encodeURIComponent(curScore.poet))
                   console.log("General > author[poet]: " + unescape(encodeURIComponent(curScore.poet)))
                   result += "</author>" + crlf
@@ -157,11 +159,9 @@ MuseScore {
       // Step 2.3: create Logic
       function createLogic() {
             console.log ("Compiling the Logic layer...")
-            var result = indent(1)+ "<logic>" + crlf
-            var createSpineResult = createSpine()
-            var createSpineResults = createSpineResult.split("||")
-            result += createSpineResults[0]
-            result += createLOS(createSpineResults[1], createSpineResults[2])
+            var result = indent(1) + "<logic>" + crlf
+            result += createSpine()
+            result += createLOS()
             result += indent(1)+ "</logic>" + crlf
             return result
       }
@@ -170,281 +170,246 @@ MuseScore {
       function createSpine() {
             console.log("Creating the spine...")
             var result = indent(2)+ "<spine>" + crlf
-            var keySignatures = "||"
-            var timeSignatures = "||"
-
-            // create dictionary using tick number as a key
-            var dict = [];
-            var cursor = curScore.newCursor()
-            var oldPartName
-            var voiceDelta = 0
-            var voiceIncrementalNumber = 1
-            for (var j = 0; j < curScore.nstaves; j++) {
-                  cursor.staffIdx = j
-                  var firstClefInserted = false
-                  var currentPartName = getPartNameFromStaffIndex(cursor.staffIdx)
-                  if (currentPartName != oldPartName) {
-                        voiceDelta = 0
-                        voiceIncrementalNumber = 1
-                  }
-                  else
-                        voiceDelta = voiceDelta + 4
-                  
-                  oldPartName = currentPartName   
-                  for (var i = 0; i < 4; i++) {
-                        cursor.voice = i
-                        cursor.rewind(0)
-                        var eventCounter = 1
-                        var measureCounter = 0
-                        var old_meas = 0
-                        var old_key = null
-                        var old_time = null
-                        var atLeastOneEvent = false;
-                        do {
-                              if (cursor.measure != old_meas) {
-                                    measureCounter++
-                                    eventCounter = 1
-                              }
-                              old_meas = cursor.measure                        
-      
-                              // Clef
-                              if (!firstClefInserted) {
-                                    var id = currentPartName + "_staff" + ((voiceDelta / 4) + 1) + "_clef"
-                                    // tick expressed on 16 digits -> key; event id -> value
-                                    if (dict[zeroPad(cursor.tick, 16)])
-                                          dict[zeroPad(cursor.tick, 16)] += ";" + id
-                                    else
-                                          dict[zeroPad(cursor.tick, 16)] = id
-                                    keySignatures += currentPartName + "_staff" + ((voiceDelta / 4) + 1) + ",," + id + ",," + cursor.keySignature + ";;"
-                                    firstClefInserted = true
-                              }
-                              // Key signature
-                              if (cursor.keySignature != old_key && (i % 4 == 0)) {
-                                    old_key = cursor.keySignature
-                                    var id = currentPartName + "_staff" + ((voiceDelta / 4) + 1) + "_meas" + measureCounter + "_keysig"
-                                    // tick expressed on 16 digits -> key; event id -> value
-                                    if (dict[zeroPad(cursor.tick, 16)])
-                                          dict[zeroPad(cursor.tick, 16)] += ";" + id
-                                    else
-                                          dict[zeroPad(cursor.tick, 16)] = id
-                                    keySignatures += currentPartName + "_staff" + ((voiceDelta / 4) + 1) + ",," + id + ",," + cursor.keySignature + ";;"
-                              }
-                              // Time signature
-                              if (cursor.timeSignature != old_time && (i % 4 == 0)) {
-                                    old_time = cursor.timeSignature
-                                    var id = currentPartName + "_staff" + ((voiceDelta / 4) + 1) + "_meas" + measureCounter + "_timesig"
-                                    // tick expressed on 16 digits -> key; event id -> value
-                                    if (dict[zeroPad(cursor.tick, 16)])
-                                          dict[zeroPad(cursor.tick, 16)] += ";" + id
-                                    else
-                                          dict[zeroPad(cursor.tick, 16)] = id
-                                    // console.log(vtuPerQuarter)
-                                    var totalVtus = vtuPerQuarter * cursor.timeSignature.numerator * (4 / cursor.timeSignature.denominator)
-                                    timeSignatures += currentPartName + "_staff" + ((voiceDelta / 4) + 1) + ",," + id + ",," + cursor.timeSignature.numerator + ",," + cursor.timeSignature.denominator  + ",," + totalVtus + ";;"
-                              }
-
-                              if (cursor.element != null && (cursor.element.type == Element.CHORD || cursor.element.type == Element.REST)) {  
-                                    // event id
-                                    var id = getEventId(currentPartName, measureCounter, voiceIncrementalNumber, eventCounter)
-                                    // tick expressed on 16 digits -> key; event id -> value
-                                    if (dict[zeroPad(cursor.tick, 16)])
-                                          dict[zeroPad(cursor.tick, 16)] += ";" + id
-                                    else
-                                          dict[zeroPad(cursor.tick, 16)] = id
-                                    eventCounter++
-                                    atLeastOneEvent = true
-                              }
+            var oldVtu = 0
+            for (var currentTick in dictSpine) {
+                  for (var staffIdx in dictStaves) {
+                        if (dictStaves[staffIdx][2][currentTick]) {
+                              var id = dictStaves[staffIdx][2][currentTick].split(";;")[0]
+                              result += indent(3) + "<event id=\"" + id + "\" timing=\"" + (currentTick - oldVtu) + "\" hpos=\"" + (currentTick - oldVtu) + "\" />" + crlf
+                              oldVtu = currentTick
                         }
-                        while (cursor.next()) 
-                        if (atLeastOneEvent)
-                              voiceIncrementalNumber++
+                        if (dictStaves[staffIdx][3][currentTick]) {
+                              var id = dictStaves[staffIdx][3][currentTick].split(";;")[0]
+                              result += indent(3) + "<event id=\"" + id + "\" timing=\"" + (currentTick - oldVtu) + "\" hpos=\"" + (currentTick - oldVtu) + "\" />" + crlf
+                              oldVtu = currentTick
+                        }
+                        if (dictStaves[staffIdx][4][currentTick]) {
+                              var id = dictStaves[staffIdx][4][currentTick].split(";;")[0]
+                              result += indent(3) + "<event id=\"" + id + "\" timing=\"" + (currentTick - oldVtu) + "\" hpos=\"" + (currentTick - oldVtu) + "\" />" + crlf
+                              oldVtu = currentTick
+                        }
+                  }
+                  for (var i = 0; i  < dictSpine[currentTick].length; i++) {
+                        if (i == 0)
+                              result += indent(3) + "<event id=\"" + dictSpine[currentTick][i] + "\" timing=\"" + (currentTick - oldVtu) + "\" hpos=\"" + (currentTick - oldVtu) + "\" />" + crlf
+                        else
+                              result += indent(3) + "<event id=\"" + dictSpine[currentTick][i] + "\" timing=\"0\" hpos=\"0\" />" + crlf
+                        oldVtu = currentTick
                   }
             }
-
-            // sort to obtain spine
-            var sorted = [];
-            for(var key in dict) {
-                  sorted[sorted.length] = key;
-            }
-            sorted.sort();
-
-            for(var i = 0; i < sorted.length; i++) {
-                  var delta = i > 0 ? parseInt(sorted[i],10) - parseInt(sorted[i-1],10) : 0
-                  var candidateIds = dict[sorted[i]].split(";")
-                  for (var c = 0; c < candidateIds.length; c++) {
-                        result += indent(3)+ "<event id='" + candidateIds[c] + "' "
-                        result += "timing='" + delta + "' "
-                        result += "hpos='" + delta + "' "
-                        result += "/>" + crlf
-                        delta = 0
-                  }
-            }
-
-            result += indent(2)+ "</spine>" + crlf
-            return result + keySignatures + timeSignatures
+            result += indent(2) + "</spine>" + crlf
+            return result
       }
 
       // Step 2.3.2: create LOS
-      function createLOS(keySignatures, timeSignatures) {
+      function createLOS() {
             console.log("Creating logically organized symbols...")
 
-            var keySignatures = keySignatures.split(";;")
-            var timeSignatures = timeSignatures.split(";;")
-            var result = indent(2)+ "<los>" + crlf
+            var parts = ""
             var lyrics = ""
-            
-            // Staff list
-            result += indent(3)+ "<staff_list>" + crlf
-            var oldPartName = ""
-            var staff_counter = 1
-            for (var staffIndex = 0; staffIndex < curScore.nstaves; staffIndex++) {
-                  if (getPartNameFromStaffIndex(staffIndex) != oldPartName) {
-                        oldPartName = getPartNameFromStaffIndex(staffIndex)
-                        staff_counter = 1
-                  }
-                  var staffName = getPartNameFromStaffIndex(staffIndex) + "_staff" + staff_counter
-                  result += indent(4)+ "<staff id='" + staffName + "' line_number='"
-                  
-                  /*
-                  if (curScore.parts[j].hasDrumStaff)
-                        result += "1"
-                  else*/
-                        result += "5"
-
-                  result += "'>" + crlf
-                  var aggregatedClef = getClef(staffIndex)
-                  var disaggregatedClef = aggregatedClef.split("_")
-                  result += indent(5)+ "<clef event_ref='" + staffName + "_clef' shape='" + disaggregatedClef[0] + "' staff_step='" + disaggregatedClef[1] + "' />" + crlf
-                        
-                  // Key signatures
-                        for (var ks = 0; ks < keySignatures.length; ks++) {
-                              var keySignature = keySignatures[ks].split(",,")
-                              if (keySignature[0] == staffName) {
-                                    result += indent(5)+ "<key_signature event_ref='" + keySignature[1] + "'>" + crlf
-                                    var accidentals = parseInt(keySignature[2])
-                                    if (accidentals >= 0)
-                                          result += indent(6)+ "<sharp_num number='" + accidentals + "'/>" + crlf
-                                    else
-                                          result += indent(6)+ "<flat_num number='" + (accidentals * -1) + "'/>" + crlf
-                                    result += indent(5)+ "</key_signature>" + crlf
-                              }    
-                        }
-                        
-                  // Time signatures
-                        for (var ts = 0; ts < timeSignatures.length; ts++) {
-                              var timeSignature = timeSignatures[ts].split(",,")
-                              if (timeSignature[0] == staffName) {
-                                    result += indent(5)+ "<time_signature event_ref='" + timeSignature[1] + "'>" + crlf
-                                    result += indent(6)+ "<time_indication num='" + parseInt(timeSignature[2]) + "' den='" + parseInt(timeSignature[3]) + "' vtu_amount='" + timeSignature[4] + "' />" + crlf
-                                    result += indent(5)+ "</time_signature>" + crlf
-                              }    
-                        }
-      
-                  result += indent(4)+ "</staff>" + crlf
-                  staff_counter++
-            }
-            result += indent(3)+ "</staff_list>" + crlf
 
             // Parts
             for (var partIdx = 0; partIdx < curScore.parts.length; partIdx++) {
+                  var partVoices = []
                   var currentPartName = getPartNameFromPartIndex(partIdx)
-                  var trackIdxsToParse = getRealTrackIdxsOfPart(partIdx)
-                  var voiceNamesToParse = []
-                  result += indent(3)+ "<part id='" + currentPartName + "'" + getPartTransposition(partIdx) + ">" + crlf
-                  // Voice list (for parts)
-                  result += indent(4)+ "<voice_list>" + crlf
-                  var voiceCounter = trackIdxsToParse.length
-                  for (var voiceIdx = 1; voiceIdx <= voiceCounter; voiceIdx++) {
-                        var id = currentPartName + "_voice" + voiceIdx
-                        var staffRef = getStaffNameFromPartAndVoice(partIdx, voiceIdx)
-                        result += indent(5)+ "<voice_item id='" + id + "' staff_ref='" + currentPartName + "_staff" + staffRef + "' />" + crlf   
-                        voiceNamesToParse[voiceIdx-1] = id
-                  }
-                  result += indent(4)+ "</voice_list>" + crlf
-                  
+                  parts += indent(3)+ "<part id=\"" + currentPartName + "\"" + getPartTransposition(partIdx) + ">" + crlf
+
                   // Measures
-                  var measureToParse = 0
-                  var cursor = curScore.newCursor()
-                  var stopWhile = false
-                  // Cycling on measures...
-                  var oldPartForLyrics = ""
-                  var oldVoiceForLyrics = ""
-                  while (true) {
-                        measureToParse++
-                        cursor.rewind(0)
-                        for (var advanceMeas = 1; advanceMeas < measureToParse; advanceMeas++) {
-                              cursor.nextMeasure()
-                              if (cursor.measure == null) {
-                                    //console.log("Stopping measure advancement cycle...")
-                                    stopWhile = true
-                                    break
-                              }
-                        }
-                        if (stopWhile == true) {
-                              //console.log("Stopping measure cycle...")
-                              break
-                        }
-                        result += indent(4)+ "<measure number='" + measureToParse + "'>" + crlf
-                        
-                        // Voicing per measure
-                        for (var v = 0; v < trackIdxsToParse.length; v++) {
-                              var innerCursor = curScore.newCursor()
-                              var atLeastOneEvent = false
-                              var currentLyrics = ""
-                              innerCursor.track = trackIdxsToParse[v]
-                              innerCursor.rewind(0)
-                              // move cursor to current measure
-                              do {
-                                    // console.log(innerCursor.tick + " " + cursor.tick)
-                                    if (innerCursor.tick >= cursor.tick)
-                                          break
-                              }
-                              while (innerCursor.nextMeasure())
-                              var eventNum = 0
-                         
-                              // Chords and rests (and lyrics)
-                              var currentMeasure = innerCursor.measure
-                              do
-                                    if (innerCursor.element != null) {
-                                          eventNum++
-                                          if (!atLeastOneEvent)
-                                                result += indent(5)+ "<voice voice_item_ref='" + voiceNamesToParse[v] + "'>" + crlf
-                                          atLeastOneEvent = true
-                                          var eventId = getEventId(currentPartName, measureToParse, (v + 1), eventNum)
-                                          // console.log (eventId)
-                                          if (innerCursor.element.type == Element.CHORD) {
-                                                result += parseChord(innerCursor.element, eventId, curScore.parts[partIdx].hasPitchedStaff)
-                                                // Lyrics
-                                                currentLyrics += parseLyrics(innerCursor.element, eventId)
+                  var measures = ""
+                  for (var measNum in dictParts[currentPartName]) {
+                        measures += indent(4)+ "<measure number=\"" + measNum + "\">" + crlf
+                        for (var voiceId in dictParts[currentPartName][measNum]) {
+
+                              // Voice List
+                              if (partVoices.indexOf(voiceId) == -1)
+                                    partVoices.push(voiceId)
+
+                              measures += indent(5)+ "<voice voice_item_ref=\"" + voiceId + "\">" + crlf
+                              for (var chordOrRestIdx in dictParts[currentPartName][measNum][voiceId]) {
+                                    var chordOrRest = dictParts[currentPartName][measNum][voiceId][chordOrRestIdx]
+                                    var splitted = chordOrRest.split(";;")
+                                    var id = splitted[1]
+                                    var num = splitted[2].split(";")[0]
+                                    var den = splitted[2].split(";")[1]
+                                    var augDots = splitted[2].split(";")[2]
+                                    var tuplet = splitted[2].split(";")[3]
+                                    var notes = splitted[3]
+                                    if (tuplet != ",,,") {
+                                          var tupletEnterNum = tuplet.split(",")[0]
+                                          var tupletEnterDen = tuplet.split(",")[1]
+                                          var tupletInNum = tuplet.split(",")[2]
+                                          var tupletInDen = tuplet.split(",")[3]
+                                    }
+                                    if (splitted[0] == "C") { // Chord
+                                          measures += indent(6) + "<chord event_ref=\"" + id + "\" >" + crlf
+                                          measures += indent(7) + "<duration num=\"" + num + "\" den=\"" + den + "\" >"  + crlf
+                                          if (tuplet != ",,,")
+                                                measures += indent(8) + "<tuplet_ratio enter_num=\"" + tupletEnterNum + "\" enter_den=\"" + tupletEnterDen + "\" in_num=\"" + tupletInNum + "\" in_den=\"" + tupletInDen + "\" />"  + crlf
+                                          measures += indent(7) + "</duration>" + crlf
+                                          if (augDots != "0")
+                                                measures += indent(7) + "<augmentation_dots number=\"" + augDots + "\" />"  + crlf
+                                          var splittedNotes = notes.split(";")
+                                          for (var noteIdx in splittedNotes) {
+                                                var note = splittedNotes[noteIdx]
+                                                var step = note.split(",")[0]
+                                                if (step == "")
+                                                      continue
+                                                var octave = note.split(",")[1]
+                                                var actualAccidental = note.split(",")[2]
+                                                var printedAccidental = note.split(",")[3]
+                                                var tie = note.split(",")[4]
+                                                measures += indent(7) + "<notehead>"  + crlf
+                                                measures += indent(8) + "<pitch step=\"" + step + "\" octave=\"" + octave + "\" actual_accidental=\"" + actualAccidental + "\"/>"  + crlf
+                                                if (printedAccidental)
+                                                      measures += indent(8) + "<printed_accidentals><" + printedAccidental + " /></printed_accidentals>"  + crlf
+                                                if (tie)
+                                                      measures += indent(8) + "<tie />"  + crlf
+                                                measures += indent(7) + "</notehead>"  + crlf
                                           }
-                                          else if (innerCursor.element.type == Element.REST)
-                                                result += parseRest(innerCursor.element, eventId)
+                                          measures += indent(6) + "</chord>" + crlf
+                                    } else { // Rest
+                                          measures += indent(6) + "<rest event_ref=\"" + id + "\" >" + crlf
+                                          measures += indent(7) + "<duration num=\"" + num + "\" den=\"" + den + "\" >"  + crlf
+                                          if (tuplet != ",,,")
+                                                measures += indent(8) + "<tuplet_ratio enter_num=\"" + tupletEnterNum + "\" enter_den=\"" + tupletEnterDen + "\" in_num=\"" + tupletInNum + "\" in_den=\"" + tupletInDen + "\" />"  + crlf
+                                          measures += indent(7) + "</duration>" + crlf
+                                          if (augDots != "0")
+                                                measures += indent(7) + "<augmentation_dots number=\"" + augDots + "\" />"  + crlf
+                                          measures += indent(6) + "</rest>" + crlf
                                     }
-                              while (innerCursor.next() && innerCursor.measure == currentMeasure)
-                              if (atLeastOneEvent)
-                                    result += indent(5)+ "</voice>" + crlf
-                              
-                              // Lyrics 
-                              if (currentLyrics != "") {
-                                    if (currentPartName != oldPartForLyrics || voiceNamesToParse[v] != oldVoiceForLyrics) {
-                                          if (oldPartForLyrics != "")
-                                                lyrics += indent(3) + "</lyrics>"
-                                          lyrics += indent(3) + "<lyrics part_ref='" + currentPartName + "' voice_ref='" + voiceNamesToParse[v] + "'>" + crlf
-                                    }
-                                    lyrics += currentLyrics
-                                    oldPartForLyrics = currentPartName
-                              oldVoiceForLyrics = voiceNamesToParse[v]
                               }
+                              measures += indent(5)+ "</voice>" + crlf
                         }
-                        result += indent(4)+ "</measure>" + crlf
+                        measures += indent(4)+ "</measure>" + crlf
                   }
-                  
-                  result += indent(3)+ "</part>" + crlf
+
+                  // Voice list (for parts)
+                  parts += indent(4)+ "<voice_list>" + crlf
+                  for (var voiceId in partVoices) {
+                        var id = partVoices[voiceId]
+                        var staffRef = ""
+                        for (var staffIdx in dictStaves) {
+                              for (var v in dictStaves[staffIdx][1])
+                                    if (dictStaves[staffIdx][0] == partIdx && dictStaves[staffIdx][1][v] == id) {
+                                          staffRef = parseInt(staffIdx) + 1
+                                          break
+                                    }
+                        }
+                        parts += indent(5)+ "<voice_item id=\"" + id + "\" staff_ref=\"staff" + staffRef + "\" />" + crlf   
+                  }
+
+                  parts += indent(4)+ "</voice_list>" + crlf
+                
+                  parts += measures
+                  parts += indent(3)+ "</part>" + crlf
             }
 
-          if (lyrics != "")
-            result += lyrics + indent(3) + "</lyrics>" + crlf
+            if (lyrics != "")
+                  parts += lyrics + indent(3) + "</lyrics>" + crlf
+
+            // Staff list
+            var staffList = indent(3) + "<staff_list>" + crlf
+            for (var staffIdx in dictStaves) {
+                  var staffRef = parseInt(staffIdx) + 1
+                  staffList += indent(4) + "<staff id=\"staff" + staffRef + "\">" + crlf
+                  for (var tick in dictStaves[staffIdx][2]) {
+                        var splitted = dictStaves[staffIdx][2][tick].split(";;")
+                        var eventRef = splitted[0]
+                        var shape = splitted[1]
+                        var staffStep = splitted[2]
+                        staffList += indent(5) + "<clef event_ref=\"" + eventRef + "\" shape=\"" + shape + "\" staff_step=\"" + staffStep + "\"/>" + crlf
+                  }
+                  for (var tick in dictStaves[staffIdx][3]) {
+                        var splitted = dictStaves[staffIdx][3][tick].split(";;")
+                        var eventRef = splitted[0]
+                        var k = parseInt(splitted[1])
+                        staffList += indent(5) + "<key_signature event_ref=\"" + eventRef + "\">" + crlf
+                        if (k >= 0)
+                              staffList += indent(6) + "<sharp_num number=\"" + k + "\"/>" + crlf
+                        else
+                              staffList += indent(6) + "<flat_num number=\"" + (-1 * k) + "\"/>" + crlf
+                        staffList += indent(5) + "</key_signature>" + crlf
+                  }
+                  for (var tick in dictStaves[staffIdx][4]) {
+                        var splitted = dictStaves[staffIdx][4][tick].split(";;")
+                        var eventRef = splitted[0]
+                        var num = parseInt(splitted[1])
+                        var den = parseInt(splitted[2])
+                        var numS = splitted[3]
+                        var denS = splitted[4]
+                        var vtuAmount = 4 * 480 * num / den
+                        staffList += indent(5) + "<time_signature event_ref=\"" + eventRef + "\">" + crlf
+                        if (numS == "C" || numS == "¢")
+                              staffList += indent(6) + "<time_indication num=\"" + num + "\" den=\"" + den + "\" abbreviation=\"yes\" vtu_amount=\"" + vtuAmount + "\" />" + crlf
+                        else if (denS == "")
+                              staffList += indent(6) + "<time_indication num=\"" + numS + "\" vtu_amount=\"" + vtuAmount + "\" />" + crlf
+                        else
+                              staffList += indent(6) + "<time_indication num=\"" + numS + "\" den=\"" + denS + "\" vtu_amount=\"" + vtuAmount + "\" />" + crlf
+                        staffList += indent(5) + "</time_signature>" + crlf
+                  }
+                  staffList += indent(4) + "</staff>" + crlf
+            }
+
+            staffList += indent(3)+ "</staff_list>" + crlf
+
+            var result = indent(2)+ "<los>" + crlf 
+            result += staffList + parts
+
+            // Lyrics
+            for (var lyricsBlock in dictLyrics)
+                  if (dictLyrics[lyricsBlock] != "") {
+                        var splitted = lyricsBlock.split(";")
+                        var partRef = splitted[0]
+                        var voiceRef = splitted[1]
+                        result += indent(3) + "<lyrics part_ref=\"" + partRef + "\" voice_ref=\"" + voiceRef + "\">" + crlf
+                        result += dictLyrics[lyricsBlock]
+                        result += indent(3) + "</lyrics>" + crlf
+                  }
             result += indent(2)+ "</los>" + crlf
+            return result
+      }
+
+      // Step 2.4: create Notational
+      function createNotational() {
+            console.log("Creating notational...")
+            var spatium = 0.0694
+            var dpi = 300
+            var result = indent(1)+ "<notational>" + crlf
+            result += indent(2) + "<graphic_instance_group description=\"Export from MuseScore\">" + crlf
+            for (var pageNumber in dictBBoxes) {
+                  result += indent(3) + "<graphic_instance position_in_group=\"" + pageNumber + "\" file_name=\"" + filenameFromScore() + "-" + pageNumber + ".png\""
+                  result += " file_format=\"image_png\" encoding_format=\"image_png\" measurement_unit=\"pixels\">" + crlf
+                  for (var eventId in dictBBoxes[pageNumber]) {
+                        var splitted = dictBBoxes[pageNumber][eventId].split(";;")
+
+                        var upperLeftX = Math.round(parseFloat(splitted[1]) * spatium * dpi)
+                        var upperLeftY = Math.round(parseFloat(splitted[2]) * spatium * dpi)
+
+                        var lowerRightX = Math.round((parseFloat(splitted[1]) + parseFloat(splitted[3])) * spatium * dpi)
+                        var lowerRightY = Math.round((parseFloat(splitted[2]) + parseFloat(splitted[4])) * spatium * dpi)
+                        
+                        var bbx = Math.round(parseFloat(splitted[5]) * spatium * dpi)
+                        var bby = Math.round(parseFloat(splitted[6]) * spatium * dpi)
+
+                        if (splitted[0] == "C") {
+                              upperLeftX = upperLeftX - 42 + bbx
+                              lowerRightX = lowerRightX - 42 + bbx
+                        }
+                        upperLeftY += bby
+                        lowerRightY += bby
+
+                        upperLeftX -= 5
+                        upperLeftY -= 5
+                        lowerRightX += 5
+                        lowerRightY += 5
+
+                        result += indent(4) + "<graphic_event event_ref=\"" + eventId + "\" upper_left_x=\"" + upperLeftX + "\" upper_left_y=\"" + upperLeftY + "\""
+                        result += " lower_right_x=\"" + lowerRightX + "\" lower_right_y=\"" + lowerRightY + "\" /> <!-- " + bbx + ", " + bby + " -->" + crlf
+                  }
+            }
+            result += indent(3) + "</graphic_instance>" + crlf
+            result += indent(2) + "</graphic_instance_group>" + crlf
+            result += indent(1) + "</notational>" + crlf
             return result
       }
 
@@ -459,57 +424,18 @@ MuseScore {
             return Array(+(zero > 0 && zero)).join("0") + num
       }
 
-      function getPartNameFromStaffIndex(idx) {
-            var candidatePartName = ""
-            var candidatePartIndex = -1
-            for (var j = 0; j < curScore.parts.length; j++) {
-                  // console.log("j=" + j + "; Part: " + curScore.parts[j].longName + "; Start: " + curScore.parts[j].startTrack + "; End: " + curScore.parts[j].endTrack)
-                  if (idx >= (curScore.parts[j].startTrack / 4) && idx <= ((curScore.parts[j].endTrack - 1) / 4)) {
-                        candidatePartName = curScore.parts[j].longName
-                        candidatePartIndex = j
-                        break
-                  }
-            }
-            candidatePartName = candidatePartName.toLowerCase().replace(/ /g, "_").replace(/[^a-zA-Z0-9_]+/g, "")
-            if (candidatePartName == null || candidatePartName == "")
-                  candidatePartName = "part" + (j + 1)
-            return candidatePartName
-      }
-
       function getPartNameFromPartIndex(idx) {
             var candidatePartName = curScore.parts[idx].longName.toLowerCase().replace(/ /g, "_").replace(/[^a-zA-Z0-9_]+/g, "")
             if (candidatePartName == null || candidatePartName == "")
-                  candidatePartName = "part" + (j + 1)
-            return candidatePartName
-      }
-
-      function countVoicesOfPart(partIdx) {
-            var counter = 0
-            var tempCursor = curScore.newCursor()
-            var startTrack = curScore.parts[partIdx].startTrack
-            // console.log("Start track: " + startTrack)
-            var endTrack = curScore.parts[partIdx].endTrack
-            // console.log("End track: " + endTrack)
-            for (var j = startTrack; j < endTrack; j++) { // Note that endTrack is excluded!
-                  tempCursor.track = j
-                  tempCursor.rewind(0)
-                  while (tempCursor.next())
-                        if (tempCursor.element != null && (tempCursor.element.type == Element.CHORD || tempCursor.element.type == Element.REST)) {
-                              counter++
-                              break
-                        }
-            }
-            // console.log(counter)
-            return counter
+                  candidatePartName = "part"
+            return candidatePartName + (parseInt(idx) + 1)
       }
 
       function getRealTrackIdxsOfPart(partIdx) {
             var trackIdxs = []
             var tempCursor = curScore.newCursor()
             var startTrack = curScore.parts[partIdx].startTrack
-            // console.log("Start track: " + startTrack)
             var endTrack = curScore.parts[partIdx].endTrack
-            // console.log("End track: " + endTrack)
             for (var j = startTrack; j < endTrack; j++) { // Note that endTrack is excluded!
                   tempCursor.track = j
                   tempCursor.rewind(0)
@@ -592,119 +518,6 @@ MuseScore {
                         break      
             }
             return transpositionString
-      }
-
-      function getStaffNameFromPartAndVoice(partIdx, voiceIdx) {
-            var counter = 0
-            var tempCursor = curScore.newCursor()
-            var startTrack = curScore.parts[partIdx].startTrack
-            // console.log("Start track: " + startTrack)
-            var endTrack = curScore.parts[partIdx].endTrack
-            // console.log("End track: " + endTrack)
-            for (var j = startTrack; j < endTrack; j++) { // Note that endTrack is excluded!
-                  tempCursor.track = j
-                  tempCursor.rewind(0)
-                  do
-                        if (tempCursor.element != null && (tempCursor.element.type == Element.CHORD || tempCursor.element.type == Element.REST)) {
-                              counter++
-                              break
-                        }
-                  while (tempCursor.next())
-                  if (counter == voiceIdx) {
-                        var result = Math.floor((j - startTrack) / 4) + 1
-                        // console.log ("Voice " + voiceIdx + " >>> Staff " + result)
-                        return result
-                  }
-            }
-            return 0
-      }
-
-      function parseChord(chord, eventId, isPitched) {
-            var result = indent(6) + "<chord event_ref='" + eventId + "'>" + crlf
-            // Augmentation dots
-            var augDots = 0
-            var candidateNum = chord.duration.numerator
-            var candidateDen = chord.duration.denominator
-            if (candidateNum == 7) {
-                  candidateNum -= 1
-                  augDots++
-                  var newFraction = reduceFraction(candidateNum, candidateDen)
-                  candidateNum = newFraction[0]
-                  candidateDen = newFraction[1]
-            }       
-            if (candidateNum == 3) {
-                  candidateNum -= 1
-                  augDots++
-                  var newFraction = reduceFraction(candidateNum, candidateDen)
-                  candidateNum = newFraction[0]
-                  candidateDen = newFraction[1]
-            }
-            result += indent(7) + "<duration num='" + candidateNum + "' den='" + candidateDen + "'"
-            if (chord.duration.numerator != chord.globalDuration.numerator || chord.duration.denominator != chord.globalDuration.denominator) {
-                  result += ">" + crlf
-                  var enterFract = reduceFraction(chord.duration.numerator * (chord.globalDuration.denominator / chord.duration.denominator), chord.duration.denominator)
-                  result += indent(8) + "<tuplet_ratio enter_num='" + enterFract[0] + "' enter_den='" + enterFract[1] + "'"
-                  var inFract = reduceFraction(chord.duration.numerator * chord.globalDuration.numerator, chord.globalDuration.denominator / (chord.globalDuration.denominator / chord.duration.denominator))
-                  result += " in_num='" + inFract[0] + "' in_den='" + inFract[1] + "' />" + crlf
-                  result += indent(7) + "</duration>" + crlf
-            }
-            else
-                  result += " />" + crlf
-            if (augDots > 0)
-                  result += indent(7) + "<augmentation_dots number='" + augDots + "' />" + crlf
-            for (var i = 0; i < chord.notes.length; i++) {
-                  result += indent(7) + "<notehead>" + crlf
-                  result += indent(8) + "<pitch step='"
-                  if (isPitched)
-                        result += getStep(chord.notes[i]) + "' octave='" + getOctave(chord.notes[i]) + "' actual_accidental='" + getActualAccidental(chord.notes[i]) + "' />" + crlf
-                  else
-                        result += "none' octave='-1' actual_accidental='none' />" + crlf
-                  if (chord.notes[i].accidental)
-                        result += getPrintedAccidentals(chord.notes[i])
-                  if (chord.notes[i].tieFor)
-                        result += indent(8) + "<tie />" + crlf
-                  result += indent(7) + "</notehead>" + crlf
-            }
-            result += indent(6) + "</chord>" + crlf
-            return result
-      }
-
-      function parseRest(rest, eventId) {
-            var result = indent(6) + "<rest event_ref='" + eventId + "'>" + crlf
-            // Augmentation dots
-            var augDots = 0
-            var candidateNum = rest.duration.numerator
-            var candidateDen = rest.duration.denominator
-            if (candidateNum == 7) {
-                  candidateNum -= 1
-                  augDots++
-                  var newFraction = reduceFraction(candidateNum, candidateDen)
-                  candidateNum = newFraction[0]
-                  candidateDen = newFraction[1]
-            }       
-            if (candidateNum == 3) {
-                  candidateNum -= 1
-                  augDots++
-                  var newFraction = reduceFraction(candidateNum, candidateDen)
-                  candidateNum = newFraction[0]
-                  candidateDen = newFraction[1]
-            }
-            result += indent(7) + "<duration num='" + candidateNum + "' den='" + candidateDen + "'"
-            // Tuplet
-            if (rest.duration.numerator != rest.globalDuration.numerator || rest.duration.denominator != rest.globalDuration.denominator) {
-                  result += ">" + crlf
-                  var enterFract = reduceFraction(rest.duration.numerator * (rest.globalDuration.denominator / rest.duration.denominator), rest.duration.denominator)
-                  result += indent(8) + "<tuplet_ratio enter_num='" + enterFract[0] + "' enter_den='" + enterFract[1] + "'"
-                  var inFract = reduceFraction(rest.duration.numerator * rest.globalDuration.numerator, rest.globalDuration.denominator / (rest.globalDuration.denominator / rest.duration.denominator))
-                  result += " in_num='" + inFract[0] + "' in_den='" + inFract[1] + "' />" + crlf
-                  result += indent(7) + "</duration>" + crlf
-            }
-            else
-                  result += " />" + crlf
-            if (augDots > 0)
-                  result += indent(7) + "<augmentation_dots number='" + augDots + "' />" + crlf
-            result += indent(6) + "</rest>" + crlf
-            return result
       }
 
       function getStep(note) {
@@ -810,20 +623,20 @@ MuseScore {
       }
       
       function parseLyrics(chord, eventId) {
-                var result = ""
-          for (var i = 0; i < chord.lyrics.length; i++) {
-                        result += indent(4) + "<syllable start_event_ref='" + eventId + "'"
-              
-                        if (chord.lyrics[i].syllabic === Lyrics.SINGLE || chord.lyrics[i].syllabic === Lyrics.END) {
-                              result += " hyphen='no'"
-                        }      
-                        else {
-                              result += " hyphen='yes'"
-                        }  
-                        result += ">"
-                        result += unescape(encodeURIComponent(chord.lyrics[i].text))
-                        result += "</syllable>" + crlf
-          }
+            var result = ""
+            for (var i = 0; i < chord.lyrics.length; i++) {
+                  result += indent(4) + "<syllable start_event_ref='" + eventId + "'"
+        
+                  if (chord.lyrics[i].syllabic === Lyrics.SINGLE || chord.lyrics[i].syllabic === Lyrics.END) {
+                        result += " hyphen='no'"
+                  }      
+                  else {
+                        result += " hyphen='yes'"
+                  }  
+                  result += ">"
+                  result += unescape(encodeURIComponent(chord.lyrics[i].text))
+                  result += "</syllable>" + crlf
+            }
             return result
       }
 
@@ -900,15 +713,21 @@ MuseScore {
                         var oldClef = null
                         var oldKeySign = null
                         var oldTimeSign = null
+                        var voiceId = partName + "_" + strVOICE + (voice + 1)
+                        dictLyrics[partName + ";" + voiceId] = ""
                         var staffIdx = Math.floor(arrVoices[voice] / 4)
                         if (dictStaves[staffIdx] == null) {
                               dictStaves[staffIdx] = []
+                              dictStaves[staffIdx].push(partIdx) // part
+                              dictStaves[staffIdx].push([]) // voice
                               dictStaves[staffIdx].push([]) // clef
                               dictStaves[staffIdx].push([]) // key_signature
                               dictStaves[staffIdx].push([]) // time_signature
                         }
+                        dictStaves[staffIdx][1].push(voiceId) // voice
                         var eventNum = 1
                         var oldMeasNum = -1
+                        var sequence = []
                         cursor.track = arrVoices[voice]
                         cursor.rewind(0)
                         do {
@@ -918,55 +737,60 @@ MuseScore {
                                           measNum++
                                     if (measNum >= arrMeasures.length)
                                           measNum--
-                                    if (measNum > oldMeasNum)
+                                    if (measNum > oldMeasNum) {
                                           eventNum = 1
+                                          sequence = []
+                                    }
                                     oldMeasNum = measNum;
 
                                     // add current measure to part dictionary
                                     if (dictParts[partName][measNum + 1] == null)
                                           dictParts[partName][measNum + 1] = []
                                     // add current voice to part dictionary
-                                    if (dictParts[partName][measNum + 1][arrVoices[voice]] == null)
-                                          dictParts[partName][measNum + 1][arrVoices[voice]] = []
+                                    if (dictParts[partName][measNum + 1][voiceId] == null)
+                                          dictParts[partName][measNum + 1][voiceId] = []
 
                                     // Clef
                                     if (cursor.element.type == Element.CHORD) {
                                           var clef = ""
-                                          var note = cursor.element.notes[0]
-                                          var tonalPitchClass = ((note.tpc2 % 7) + ((note.tpc2 % 7) % 2) * 7) / 2
-                                          var position = (note.pos.y * 2) % 7 
-                                          var sum = parseInt(tonalPitchClass + position + 7) % 7
-                                          switch (sum) {
-                                                case 3:
-                                                      clef = "G;2"
-                                                      break
-                                                case 5: 
-                                                      clef = "F;6"
-                                                      break
-                                                case 0: 
-                                                      clef = "F;4"
-                                                      break
-                                                case 1: 
-                                                      clef = "C;0"
-                                                      break
-                                                case 2:
-                                                      clef = "C;6"
-                                                      break
-                                                case 4: 
-                                                      clef = "C;4"
-                                                      break                                            
-                                                case 6: 
-                                                      clef = "C;2"
-                                                      break                                                                 
+                                          if (curScore.parts[partIdx].hasPitchedStaff) {
+                                                var note = cursor.element.notes[0]
+                                                var tonalPitchClass = ((note.tpc2 % 7) + ((note.tpc2 % 7) % 2) * 7) / 2
+                                                var position = (note.pos.y * 2) % 7 
+                                                var sum = parseInt(tonalPitchClass + position + 7) % 7
+                                                switch (sum) {
+                                                      case 3:
+                                                            clef = "G;;2"
+                                                            break
+                                                      case 5: 
+                                                            clef = "F;;6"
+                                                            break
+                                                      case 0: 
+                                                            clef = "F;;4"
+                                                            break
+                                                      case 1: 
+                                                            clef = "C;;0"
+                                                            break
+                                                      case 2:
+                                                            clef = "C;;6"
+                                                            break
+                                                      case 4: 
+                                                            clef = "C;;4"
+                                                            break                                            
+                                                      case 6: 
+                                                            clef = "C;;2"
+                                                            break                                                                 
+                                                }
+                                          } else {
+                                                clef = "percussion;;0"
                                           }
                                           if (clef != oldClef) {
                                                 var currentTick = cursor.tick
                                                 if (oldClef == null)
                                                       currentTick = 0 // place the first key signature at the very beginning, even if the voice starts later
-                                                if (dictStaves[staffIdx][0][currentTick] == null) {
-                                                      dictStaves[staffIdx][0][currentTick] = getClefId(staffIdx + 1, measNum + 1, cursor.tick - arrMeasures[measNum]) + ";;" + clef
+                                                if (dictStaves[staffIdx][2][currentTick] == null) {
+                                                      dictStaves[staffIdx][2][currentTick] = getClefId(staffIdx + 1, measNum + 1, cursor.tick - arrMeasures[measNum]) + ";;" + clef
                                                       oldClef = clef
-                                                      console.log("Clef: " + dictStaves[staffIdx][0][currentTick])
                                                 }
                                           }
                                     }
@@ -976,8 +800,8 @@ MuseScore {
                                           var currentTick = cursor.tick
                                           if (oldKeySign == null)
                                                 currentTick = 0 // place the first key signature at the very beginning, even if the voice starts later
-                                          if (dictStaves[staffIdx][1][currentTick] == null) {
-                                                dictStaves[staffIdx][1][currentTick] = getKeySignId(staffIdx + 1, measNum + 1) + ";;" + cursor.keySignature
+                                          if (dictStaves[staffIdx][3][currentTick] == null) {
+                                                dictStaves[staffIdx][3][currentTick] = getKeySignId(staffIdx + 1, measNum + 1) + ";;" + cursor.keySignature
                                                 oldKeySign = cursor.keySignature
                                           }
                                     }
@@ -987,11 +811,10 @@ MuseScore {
                                           var currentTick = cursor.tick
                                           if (oldTimeSign == null)
                                                 currentTick = 0 // place the first key signature at the very beginning, even if the voice starts later
-                                          if (dictStaves[staffIdx][2][currentTick] == null) {
-                                                dictStaves[staffIdx][2][currentTick] = getTimeSignId(staffIdx + 1, measNum + 1) + ";;" 
-                                                      + cursor.timeSignature.numerator + ";" + cursor.timeSignature.denominator + ";" 
-                                                      + cursor.timeSignature.numeratorString + ";" + cursor.timeSignature.denominatorString 
-                                                console.log(dictStaves[staffIdx][2][currentTick])
+                                          if (dictStaves[staffIdx][4][currentTick] == null) {
+                                                dictStaves[staffIdx][4][currentTick] = getTimeSignId(staffIdx + 1, measNum + 1) + ";;" 
+                                                      + cursor.timeSignature.numerator + ";;" + cursor.timeSignature.denominator + ";;" 
+                                                      + cursor.timeSignature.numeratorString + ";;" + cursor.timeSignature.denominatorString 
                                                 oldTimeSign = cursor.timeSignature
                                           }
                                     }
@@ -1002,6 +825,21 @@ MuseScore {
                                          dictSpine[cursor.tick] = []
                                     dictSpine[cursor.tick].push(eventId)
                                     eventNum++
+
+                                    // BBox
+                                    var pageNumber = cursor.measure.parent.parent.pagenumber + 1
+                                    var x = cursor.element.pagePos.x.toPrecision(6)
+                                    var y = cursor.element.pagePos.y.toPrecision(6)
+                                    var w = cursor.element.bbox.width.toPrecision(6)
+                                    var h = cursor.element.bbox.height.toPrecision(6)
+                                    var bbx = cursor.element.bbox.x.toPrecision(6)
+                                    var bby = cursor.element.bbox.y.toPrecision(6)
+                                    if (dictBBoxes[pageNumber] == null)
+                                          dictBBoxes[pageNumber] = []
+                                    if (cursor.element.type == Element.CHORD)
+                                          dictBBoxes[pageNumber][eventId] = "C;;" + x + ";;" + y + ";;" + w + ";;" + h + ";;" + bbx + ";;" + bby
+                                    else
+                                          dictBBoxes[pageNumber][eventId] = "R;;" + x + ";;" + y + ";;" + w + ";;" + h + ";;" + bbx + ";;" + bby
 
                                     // LOS
 
@@ -1037,35 +875,44 @@ MuseScore {
 
                                     if (cursor.element.type == Element.CHORD) {
                                           var chord = cursor.element
-                                          dictParts[partName][measNum + 1][arrVoices[voice]] = "C" + ";;" + eventId + ";;" + candidateNum + ";" + candidateDen + ";" + augDots 
+                                          var chordS = "C" + ";;" + eventId + ";;" + candidateNum + ";" + candidateDen + ";" + augDots + ";"
                                           if (isTuplet)
-                                                dictParts[partName][measNum + 1][arrVoices[voice]] += "[" + enterFract[0] + "," + enterFract[1] + ";" + inFract[0] + "," + inFract[1] + "]"
-                                          dictParts[partName][measNum + 1][arrVoices[voice]] += ";;"
+                                                chordS += enterFract[0] + "," + enterFract[1] + "," + inFract[0] + "," + inFract[1]
+                                          else
+                                                chordS += ",,,"
+                                          chordS += ";;"
                                           // notes
                                           for (var i = 0; i < chord.notes.length; i++) {
-                                                dictParts[partName][measNum + 1][arrVoices[voice]] += getStep(chord.notes[i]) + "," + getOctave(chord.notes[i]) + "," + getActualAccidental(chord.notes[i]) + ","
-                                                if (chord.notes[i].accidental)
-                                                      dictParts[partName][measNum + 1][arrVoices[voice]] += getPrintedAccidentals(chord.notes[i])
-                                                dictParts[partName][measNum + 1][arrVoices[voice]] += ","
+                                                if (curScore.parts[partIdx].hasPitchedStaff) {
+                                                      chordS += getStep(chord.notes[i]) + "," + getOctave(chord.notes[i]) + "," + getActualAccidental(chord.notes[i]) + ","
+                                                      if (chord.notes[i].accidental)
+                                                            chordS += getPrintedAccidentals(chord.notes[i])
+                                                      chordS += ","
+                                                } else {
+                                                      chordS += "none,-1,none,,"
+                                                }
                                                 if (chord.notes[i].tieFor)
-                                                      dictParts[partName][measNum + 1][arrVoices[voice]] += "T"
-                                                dictParts[partName][measNum + 1][arrVoices[voice]] += ";"
+                                                      chordS += "T"
+                                                chordS += ";"
                                           }
+                                          sequence.push(chordS)
+                                          // Lyrics
+                                          dictLyrics[partName + ";" + voiceId] += parseLyrics(chord, eventId)
                                     }
                                     else if (cursor.element.type == Element.REST) {
-                                          dictParts[partName][measNum + 1][arrVoices[voice]] = "R" + ";;" + eventId + ";;" + candidateNum + ";" + candidateDen + ";" + augDots 
+                                          var restS = "R" + ";;" + eventId + ";;" + candidateNum + ";" + candidateDen + ";" + augDots + ";"
                                           if (isTuplet)
-                                                dictParts[partName][measNum + 1][arrVoices[voice]] += "[" + enterFract[0] + "," + enterFract[1] + ";" + inFract[0] + "," + inFract[1] + "]"
-                                          dictParts[partName][measNum + 1][arrVoices[voice]] += ";;"
+                                                restS += enterFract[0] + "," + enterFract[1] + "," + inFract[0] + "," + inFract[1]
+                                          else
+                                                restS += ",,,"
+                                          restS += ";;"
+                                          sequence.push(restS)
                                      }
-                                    console.log (dictParts[partName][measNum + 1][arrVoices[voice]]);
+                                     dictParts[partName][measNum + 1][voiceId] = sequence
                               }
                         } while (cursor.next())
                   }
             }
-            for (var key in dictSpine)
-                  for (var i = 0; i  < dictSpine[key].length; i++)
-                        console.log(key + ": " + dictSpine[key][i])
       }
       
       function reduceFraction(numerator, denominator) {
