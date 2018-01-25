@@ -11,7 +11,7 @@ import FileIO 1.0
 
 MuseScore {
       menuPath: "Plugins." + "Export to IEEE 1599"
-      version: "2.0"
+      version: "2.1"
       description: "Export to IEEE 1599 format..."
       pluginType: "dialog"
 
