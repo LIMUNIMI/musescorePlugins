@@ -1,5 +1,5 @@
 # musescorePlugins
-Repository for MuseScore 2.0 plugins developed at the Laboratorio di Informatica Musicale (LIM).
+Repository for MuseScore 2.x and 3.x plugins developed at the Laboratorio di Informatica Musicale (LIM), Department of Computer Science, University of Milan.
 
 ## Requirements
 
@@ -11,13 +11,15 @@ MuseScore can be downloaded from <https://musescore.org>
 
 ## Repo content
 
-`ExportToIEEE1599.qml` is a plugin that converts score symbols edited through MuseScore into IEEE 1599 format.
+`ExportToIEEE1599_MuseScore2_v1_1.qml` is a plugin that converts score symbols edited through MuseScore 2.x into IEEE 1599 format.
+
+`ExportToIEEE1599_MuseScore3_v1.qml` is a plugin that converts score symbols edited through MuseScore 3.x into IEEE 1599 format.
 
 `README.md` is this file.
 
 ## How to use plugins
 
-After installing MuseScore 2.0.1 or higher, plugins must be placed under `plugins` subdiectory, and enabled through the Plugin Manager, as explained in <https://musescore.org/en/handbook-advanced-topics/plugins>.
+After installing MuseScore 2.x or 3.x, plugins must be placed under `plugins` subdiectory, and enabled through the Plugin Manager, as explained in <https://musescore.org/en/handbook-advanced-topics/plugins>.
 
 ## License
 
