@@ -64,7 +64,7 @@ MuseScore {
 			errorDialog.openErrorDialog(qsTranslate("QMessageBox", "No score available.\nThis plugin requires an open score to run.\n"))
 			Qt.quit()
 		}
-                                          textFieldFilePath.text = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation)
+                //textFieldFilePath.text = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation)
 	}
 
 	Component.onDestruction: {
