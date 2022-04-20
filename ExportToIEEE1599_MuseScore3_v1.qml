@@ -1,13 +1,13 @@
 import QtQuick 2.9
-import QtQuick.Controls 1.1
-import QtQuick.Layouts 1.1
+import QtQuick.Controls 1.4
+import QtQuick.Layouts 1.3
 import QtQuick.Dialogs 1.2
 import Qt.labs.settings 1.0
 // FileDialog
-import Qt.labs.folderlistmodel 2.1
-import QtQml 2.2
-import MuseScore 3
-import FileIO 3
+import Qt.labs.folderlistmodel 2.2
+import QtQml 2.8
+import MuseScore 3.0
+import FileIO 3.0
 
 MuseScore {
 	menuPath: "Plugins." + "Export to IEEE 1599"
