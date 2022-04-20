@@ -686,7 +686,6 @@ MuseScore {
 console.log(">>>" + (note.accidentalType*1 + 1))
 console.log(">>>" + (Accidental.SHARP*1 + 1))
 if ((note.accidentalType*1 + 1) == (Accidental.SHARP*1 + 1))
-      console.log("EVVIVA!!!")
 		return accidental
 	}
 
