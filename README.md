@@ -15,6 +15,9 @@ MuseScore can be downloaded from <https://musescore.org>
 
 `ExportToIEEE1599_MuseScore3_v1.qml` is a plugin that converts score symbols edited through MuseScore 3.x into IEEE 1599 format.
 
+`ExportToIEEE1599_MuseScore4_v1.qml` is a plugin that converts score symbols edited through MuseScore >4.3.2 into IEEE 1599 format.
+
+
 `README.md` is this file.
 
 ## How to use plugins
