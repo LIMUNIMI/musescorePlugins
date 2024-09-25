@@ -8,9 +8,7 @@
 //import QtQml 2.8
 //import MuseScore 3.0
 //import FileIO 3.0
-
 //import QtCore
-
 
 import QtQuick 2.2
 import QtQuick.Controls 2.15
@@ -93,9 +91,9 @@ MuseScore {
             errorDialog.openErrorDialog(qsTr("Minimum MuseScore Version %1 required for export").arg("4.0.0"))
 		if (!(curScore)) {
 			errorDialog.openErrorDialog(qsTranslate("QMessageBox", "No score available.\nThis plugin requires an open score to run.\n"))
-			Qt.quit()
+            (typeof(quit) === 'undefined' ? Qt.quit : quit)()
 		}
-                //textFieldFilePath.text = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation)
+               // textFieldFilePath.text = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
     }
 
 	// Step 1: create XML
@@ -428,8 +426,10 @@ MuseScore {
 					var bby = Math.round(parseFloat(splitted[5]) * spatium * dpi)
 
 					if (splittedMain[0] == "C") {
-						upperLeftX = upperLeftX - 42 + bbx
-						lowerRightX = lowerRightX - 42 + bbx
+                        // upperLeftX = upperLeftX - 42 + bbx
+                        // lowerRightX = lowerRightX - 42 + bbx
+                        upperLeftX = upperLeftX+ bbx
+                        lowerRightX = lowerRightX+ bbx
 					}
 					upperLeftY += bby
 					lowerRightY += bby
@@ -880,8 +880,8 @@ if ((note.accidentalType*1 + 1) == (Accidental.SHARP*1 + 1))
 						// BBox
 						var pageNumber = cursor.measure.parent.parent.pagenumber + 1
 						// --- mapping of rests or complete chords
-						var x = cursor.element.posX.toPrecision(6)
-						var y = cursor.element.posY.toPrecision(6)
+                        var x = cursor.element.pagePos.x.toPrecision(6)
+                        var y = cursor.element.pagePos.y.toPrecision(6)
 						var w = cursor.element.bbox.width.toPrecision(6)
 						var h = cursor.element.bbox.height.toPrecision(6)
 						var bbx = cursor.element.bbox.x.toPrecision(6)
@@ -897,9 +897,16 @@ if ((note.accidentalType*1 + 1) == (Accidental.SHARP*1 + 1))
 						// --- mapping of single notes
 						if (dictBBoxesMapNotes[pageNumber] == null)
 							dictBBoxesMapNotes[pageNumber] = []
-						if (cursor.element.type == Element.REST)
+                        if (cursor.element.type == Element.REST){
+                            var x = cursor.element.pagePos.x.toPrecision(6)
+                            var y = cursor.element.pagePos.y.toPrecision(6)
+                            var w = cursor.element.bbox.width.toPrecision(6)
+                            var h = cursor.element.bbox.height.toPrecision(6)
+                            var bbx = cursor.element.bbox.x.toPrecision(6)
+                            var bby = cursor.element.bbox.y.toPrecision(6)
 							dictBBoxesMapNotes[pageNumber][eventId] = "R;;" + x + ";" + y + ";" + w + ";" + h + ";" + bbx + ";" + bby
-						else {
+                        }
+                        else {
 							dictBBoxesMapNotes[pageNumber][eventId] = "N"
 
 							for (var i = 0; i < cursor.element.notes.length; i++) {
@@ -1035,7 +1042,7 @@ FileIO {
 		title: qsTr("Conversion performed")
 		text: "Score has been successfully converted to IEEE 1599 format." + crlf + "Resulting file: " + textFieldFilePath.text + "/" + textFieldFileName.text + crlf + crlf
 		onAccepted: {
-			Qt.quit()
+            (typeof(quit) === 'undefined' ? Qt.quit : quit)()
 		}
 
 		function openEndDialog(message) {
@@ -1683,7 +1690,7 @@ RadioButton {
 
     //     MouseArea {
     //         anchors.fill: parent
-    //         onClicked: Qt.quit()
+    //         onClicked: (typeof(quit) === 'undefined' ? Qt.quit : quit)()
     //     }
     //             palette.buttonText:"black"
 
@@ -1716,11 +1723,11 @@ RadioButton {
     //     var exportDirectory = this.folder.toString().replace("file://", "").replace(/^\/(.:\/)(.*)$/, "$1$2")
     //     console.log("Selected directory: " + exportDirectory)
     //     textFieldFilePath.text = exportDirectory
-    //     Qt.quit()
+    //     (typeof(quit) === 'undefined' ? Qt.quit : quit)()
     //     }
     //     onRejected: {
     //         console.log("Directory not selected")
-    //         Qt.quit()
+    //         (typeof(quit) === 'undefined' ? Qt.quit : quit)()
     //     }
     //    //Component.onCompleted: selectFolder: true
     // }
