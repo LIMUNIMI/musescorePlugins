@@ -15,7 +15,7 @@ MuseScore can be downloaded from <https://musescore.org>
 
 `ExportToIEEE1599_MuseScore3_v1.qml` is a plugin that converts score symbols edited through MuseScore 3.x into IEEE 1599 format.
 
-`ExportToIEEE1599_MuseScore4_v1.qml` is a plugin that converts score symbols edited through MuseScore >4.3.2 into IEEE 1599 format.
+`ExportToIEEE1599_MuseScore4_v1.qml` is a plugin that converts score symbols edited through MuseScore >4.3.2 into IEEE 1599 format. Currently there is no way to open a FolderDialog to choose the location of the exported file. FilePath must be manually entered in the appropriate TextField. E.g. "Users/testuser/Downloads" "C:/Folder1/Folder2"
 
 
 `README.md` is this file.
