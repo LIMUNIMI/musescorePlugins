@@ -1,5 +1,5 @@
 # musescorePlugins
-Repository for MuseScore 2.x and 3.x plugins developed at the Laboratorio di Informatica Musicale (LIM), Department of Computer Science, University of Milan.
+Repository for MuseScore 2.x, 3.x, and 4.x plugins developed at the Laboratorio di Informatica Musicale (LIM), Department of Computer Science, University of Milan.
 
 ## Requirements
 
