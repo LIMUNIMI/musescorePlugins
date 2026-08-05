@@ -20,9 +20,21 @@ MuseScore can be downloaded from <https://musescore.org>
 
 `README.md` is this file.
 
-## How to use plugins
+## How to install plugins
 
-After installing MuseScore 2.x or 3.x, plugins must be placed under `plugins` subdiectory, and enabled through the Plugin Manager, as explained in <https://musescore.org/en/handbook-advanced-topics/plugins>.
+Download the version of the plugin for your specific MueScore version.
+
+Open MuseScore Studio.
+
+Identify your Plugins folder via Settings > Folders > Plugins.
+
+Copy the file to the Plugins folder
+
+Open MuseScore Studio and activate the plugin on the Home page under the tab Plugins.
+
+Once activated, the plugin will appear in the Plugins menu.
+
+For more information follow the instructions at <https://musescore.org/en/handbook-advanced-topics/plugins>.
 
 ## License
 
